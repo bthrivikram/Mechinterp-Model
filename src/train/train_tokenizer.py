@@ -47,11 +47,27 @@ from transformers import PreTrainedTokenizerFast
 #         "1+1=2\n4+0=4\n2+6=8\n6+4=10\n5+6=11\n8+1=9\n9+8=17\n3+3=",
 #     ]
 #
-VOCAB_CHARS: list[str] = []
-SAMPLE_TEXTS: list[str] = []
+VOCAB_CHARS = sorted(
+    "0123456789"
+    "०१२३४५६७८९"
+    "٠١٢٣٤٥٦٧٨٩"
+    "零一二三四五六七八九"
+    "+=\n"
+)
 
-# --------------------------------------------------------------------------- #
+SAMPLE_TEXTS = [
+    # English
+    "13+11=24\n27+5=32\n2+3=5\n8+8=",
 
+    # Hindi
+    "१३+११=२४\n२७+५=३२\n२+३=५\n८+८=",
+
+    # Arabic
+    "١١+١٣=٢٤\n٥+٢٧=٣٢\n٢+٣=٥\n٨+٨=",
+
+    # Mandarin
+    "一三+一一=二四\n二七+五=三二\n二+三=五\n八+八=",
+]
 _SPECIAL_TOKENS = ["<pad>", "<bos>", "<eos>", "<unk>"]
 _VOCAB = {tok: i for i, tok in enumerate(_SPECIAL_TOKENS + VOCAB_CHARS)}
 

@@ -23,6 +23,48 @@ commented `build_dataset` body below; delete it and write your own.
 import argparse
 
 from datasets import DatasetDict
+import numpy as np
+from datasets import Dataset, DatasetDict
+
+DIGIT_MAPS = {
+    "english": list("0123456789"),
+    "hindi": list("०१२३४५६७८९"),
+    "arabic": list("٠١٢٣٤٥٦٧٨٩"),
+    "mandarin": list("零一二三四五六七八九"),
+}
+LANGUAGES = list(DIGIT_MAPS.keys())
+
+
+def render_number(n: int, lang: str) -> str:
+    """Render an integer digit-by-digit in the target language's numeral script."""
+    digits = DIGIT_MAPS[lang]
+    return "".join(digits[int(d)] for d in str(n))
+
+
+def has_carry(a: int, b: int) -> bool:
+    """True if a + b produces a carry in at least one column (base 10)."""
+    carry, da, db = 0, str(a)[::-1], str(b)[::-1]
+    for i in range(max(len(da), len(db))):
+        da_i = int(da[i]) if i < len(da) else 0
+        db_i = int(db[i]) if i < len(db) else 0
+        carry = 1 if da_i + db_i + carry >= 10 else 0
+    return bool(carry)
+
+
+def render_equation(a: int, b: int, lang: str, solved: bool) -> str:
+    """'x+y=z' (solved) or 'x+y=' (unsolved). No separator -- equations are concatenated
+    directly, so example boundaries are recoverable only via the next '+' sign.
+
+    ASSUMPTION to double-check: for Arabic we swap operand order ("y+x=z") as the
+    operationalization of "RTL surface order." The '=' and answer never move, since
+    generation is autoregressive and the answer must stay last regardless of language.
+    """
+    ra, rb = render_number(a, lang), render_number(b, lang)
+    if lang == "arabic":
+        ra, rb = rb, ra
+    if solved:
+        return f"{ra}+{rb}={render_number(a + b, lang)}"
+    return f"{ra}+{rb}="
 
 
 def build_dataset(train_size: int, val_size: int, seed: int, val_holdout: float) -> DatasetDict:
@@ -83,7 +125,58 @@ def build_dataset(train_size: int, val_size: int, seed: int, val_holdout: float)
     #     })
     #
     # ----------------------------------------------------------------------- #
-    raise NotImplementedError("Implement build_dataset() for your task -- see the example in comments.")
+
+    few_shot = 8
+    max_operand = 99
+    carry_few_shot_min = 2        # Section 5: "at least two of the eight ... involve a carry"
+    carry_oversample_frac = 0.5   # Section 5: carry problems oversampled in the corpus
+
+    rng = np.random.default_rng(seed)
+
+    # Enumerate every (a, b) item once; split into disjoint train/val pools so a val
+    # question is never seen as a training question. Reused across languages so they
+    # see identical operand distributions.
+    items = [(a, b) for a in range(max_operand + 1) for b in range(max_operand + 1)]
+    rng.shuffle(items)
+    split_idx = int(len(items) * (1 - val_holdout))
+    pools = {"train": items[:split_idx], "val": items[split_idx:]}
+    carry_pools = {split: [it for it in pool if has_carry(*it)] for split, pool in pools.items()}
+
+    def sample_question(split: str, srng: np.random.Generator) -> tuple[int, int]:
+        pool = carry_pools[split] if srng.random() < carry_oversample_frac else pools[split]
+        return pool[srng.integers(len(pool))]
+
+    def sample_few_shot(srng: np.random.Generator) -> list[tuple[int, int]]:
+        carry_idx = srng.integers(len(carry_pools["train"]), size=carry_few_shot_min)
+        carry_ex = [carry_pools["train"][i] for i in carry_idx]
+        rest_idx = srng.integers(len(pools["train"]), size=few_shot - carry_few_shot_min)
+        rest = [pools["train"][i] for i in rest_idx]
+        examples = carry_ex + rest
+        srng.shuffle(examples)
+        return examples
+
+    def generate_split(total: int, q_pool: str, split_name: str, split_seed: int) -> dict:
+        srng = np.random.default_rng(split_seed)
+        rows = []
+        for i in range(total):
+            lang = LANGUAGES[i % len(LANGUAGES)]  # equal distribution across languages
+            a, b = sample_question(q_pool, srng)
+            fs_segments = [render_equation(x, y, lang, solved=True) for x, y in sample_few_shot(srng)]
+            prompt = "\n".join(fs_segments) + "\n" + render_equation(a, b, lang, solved=False)
+            rows.append({
+                "_id": f"{split_name}-{i}",
+                "language": lang,
+                "question": f"{a}+{b}",
+                "answer": render_number(a + b, lang),
+                "prompt": prompt,
+                "has_carry": has_carry(a, b),
+            })
+        srng.shuffle(rows)
+        return {k: [r[k] for r in rows] for k in rows[0]}
+
+    train_data = generate_split(train_size, "train", "train", seed)
+    val_data = generate_split(val_size, "val", "validation", seed + 1)
+    return DatasetDict({"train": Dataset.from_dict(train_data), "validation": Dataset.from_dict(val_data)})
 
 
 if __name__ == "__main__":

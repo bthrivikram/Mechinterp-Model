@@ -36,12 +36,13 @@ from transformers import (
 
 # HF Hub repo holding your trained tokenizer (see train_tokenizer.py).
 # Example: TOKENIZER_NAME = "your-username/your-project-tokenizer"
-TOKENIZER_NAME: str = ""
+TOKENIZER_NAME: str = "./artifacts/tokenizer"
+DATASET_NAME: str = "./artifacts/dataset"
 
 # Dataset with "train"/"validation" splits (see create_dataset.py). A local path such as
 # "./artifacts/dataset" or an HF Hub repo ID both work.
 # Example: DATASET_NAME = "your-username/your-dataset-name"
-DATASET_NAME: str = ""
+
 
 # Dataset config/subset name, or None if the dataset has a single default config.
 DATASET_CONFIG: str | None = None
@@ -132,6 +133,12 @@ class GenerationEvalTrainer(Trainer):
             #         sum(r["predicted"] == r["answer"] for r in carry) / len(carry) if carry else float("nan")
             #     )
             # ------------------------------------------------------------------- #
+            languages = eval_dataset["language"]
+            for lang in sorted(set(languages)):
+                subset = [r for r, l in zip(results, languages) if l == lang]
+                metrics[f"{metric_key_prefix}_{lang}_accuracy"] = (
+                    sum(r["predicted"] == r["answer"] for r in subset) / len(subset) if subset else float("nan")
+                )
 
             self.log(metrics)
             self.control = self.callback_handler.on_evaluate(self.args, self.state, self.control, metrics)

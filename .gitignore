@@ -17,3 +17,26 @@ wandb/
 analysis_results*/
 .claude/
 artifacts/
+# Python
+__pycache__/
+*.py[cod]
+
+# Virtual Environment
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# Cache
+.cache/
+
+# WandB
+wandb/
+
+# Logs
+*.log
+
+# Environment
+.env
