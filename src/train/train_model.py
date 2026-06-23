@@ -15,13 +15,13 @@ see the commented example inside GenerationEvalTrainer.evaluate.
 
 import argparse
 import random
-from sys import prefix
+
 
 import numpy as np
 import torch
 import wandb
 from datasets import Dataset, load_dataset
-from tqdm.auto import tqdm
+
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
@@ -76,17 +76,10 @@ def run_inference_batch(
 
 
 class GenerationEvalTrainer(Trainer):
-    """Trainer that replaces the default eval loop with generation-based exact-match accuracy.
-
-    The eval dataset is expected to be the raw (untokenized) validation set with
-    "prompt" and "answer" columns. For each prompt the model greedily generates a
-    completion, which is compared for exact string equality against "answer".
-    """
 
     def __init__(
         self, *args: object, eval_batch_size: int = 128, eval_max_new_tokens: int = 16, **kwargs: object
     ) -> None:
-        """Store eval-time generation settings, then defer to the base Trainer."""
         super().__init__(*args, **kwargs)
         self.eval_batch_size = eval_batch_size
         self.eval_max_new_tokens = eval_max_new_tokens
@@ -94,30 +87,47 @@ class GenerationEvalTrainer(Trainer):
     def compute_accuracy(self, dataset, prefix):
         results = []
 
-        for i in range(0, len(dataset), self.eval_batch_size):
-            batch = dataset[i : i + self.eval_batch_size]
+        original_padding_side = self.processing_class.padding_side
+        self.processing_class.padding_side = "left"
 
-            predictions = run_inference_batch(
-                self.model,
-                self.processing_class,
-                batch["prompt"],
-                self.eval_max_new_tokens,
-            )
+        try:
+            for i in range(0, len(dataset), self.eval_batch_size):
+                batch = dataset[i : i + self.eval_batch_size]
 
-            for j, predicted in enumerate(predictions):
-                results.append(
-                    {
-                        "predicted": predicted,
-                        "response": batch["response"][j],
-                    }
+                predictions = run_inference_batch(
+                    self.model,
+                    self.processing_class,
+                    batch["prompt"],
+                    self.eval_max_new_tokens,
                 )
 
-        accuracy = (
-            sum(r["predicted"] == r["response"] for r in results)
-            / len(results)
-        )
+                for j, predicted in enumerate(predictions):
+                    results.append({
+                        "predicted": predicted,
+                        "response": batch["response"][j],
+                        "language": batch["language"][j],
+                    })
 
-        return {f"{prefix}_accuracy": accuracy}
+            accuracy = (
+                sum(r["predicted"] == r["response"] for r in results)
+                / len(results)
+            )
+
+            metrics = {f"{prefix}_accuracy": accuracy}
+
+            for lang in sorted(set(r["language"] for r in results)):
+                subset = [r for r in results if r["language"] == lang]
+
+                metrics[f"{prefix}_{lang}_accuracy"] = (
+                    sum(r["predicted"] == r["response"] for r in subset)
+                    / len(subset)
+                    if subset else float("nan")
+                )
+
+            return metrics
+
+        finally:
+            self.processing_class.padding_side = original_padding_side
 
     def evaluate(
         self,
@@ -125,68 +135,33 @@ class GenerationEvalTrainer(Trainer):
         ignore_keys: list[str] | None = None,
         metric_key_prefix: str = "eval",
     ) -> dict[str, float]:
-        """Run greedy generation on the validation set and return exact-match accuracy."""
+
         eval_dataset = eval_dataset if eval_dataset is not None else self.eval_dataset
+
         was_training = self.model.training
         self.model.eval()
-        original_padding_side = self.processing_class.padding_side
-        self.processing_class.padding_side = "left"
 
         try:
-            results = []
-            for i in tqdm(range(0, len(eval_dataset), self.eval_batch_size), desc="Evaluating"):
-                batch = eval_dataset[i : i + self.eval_batch_size]
-                predictions = run_inference_batch(
-                    self.model, self.processing_class, batch["prompt"], self.eval_max_new_tokens
-                )
-                for j, predicted in enumerate(predictions):
-                   results.append({"predicted": predicted, "response": batch["response"][j]})
+            metrics = self.compute_accuracy(eval_dataset, metric_key_prefix)
 
-            accuracy = (sum(r["predicted"] == r["response"] for r in results)/ len(results))
-            metrics = {f"{metric_key_prefix}_accuracy": accuracy}
-
-            # Train accuracy
             if hasattr(self, "raw_train"):
-                train_metrics = self.compute_accuracy(
-                self.raw_train,
-                "train"
-            )
+                train_metrics = self.compute_accuracy(self.raw_train, "train")
                 metrics.update(train_metrics)
 
-            # ------------------------------------------------------------------- #
-            # Optional: per-category accuracy breakdown.
-            # ------------------------------------------------------------------- #
-            # `results` is in the same order as `eval_dataset`, so you can split it
-            # by any category column on the val rows. This block is drop-in: paste
-            # it right here. Example for a single-digit addition task, reporting
-            # accuracy separately for sums that carry (answer >= 10) vs those that
-            # don't -- assuming each val row has an integer "answer" column:
-            #
-            #     answers = [int(x) for x in eval_dataset["answer"]]
-            #     no_carry = [r for k, r in enumerate(results) if answers[k] < 10]
-            #     carry = [r for k, r in enumerate(results) if answers[k] >= 10]
-            #     metrics[f"{metric_key_prefix}_no_carry_accuracy"] = (
-            #         sum(r["predicted"] == r["answer"] for r in no_carry) / len(no_carry) if no_carry else float("nan")
-            #     )
-            #     metrics[f"{metric_key_prefix}_carry_accuracy"] = (
-            #         sum(r["predicted"] == r["answer"] for r in carry) / len(carry) if carry else float("nan")
-            #     )
-            # ------------------------------------------------------------------- #
-            languages = eval_dataset["language"]
-            for lang in sorted(set(languages)):
-                subset = [r for r, l in zip(results, languages) if l == lang]
-                metrics[f"{metric_key_prefix}_{lang}_accuracy"] = (
-                    sum(r["predicted"] == r["response"] for r in subset) / len(subset) if subset else float("nan")
-                )
-
             self.log(metrics)
-            self.control = self.callback_handler.on_evaluate(self.args, self.state, self.control, metrics)
+
+            self.control = self.callback_handler.on_evaluate(
+                self.args,
+                self.state,
+                self.control,
+                metrics,
+            )
+
             return metrics
+
         finally:
-            self.processing_class.padding_side = original_padding_side
             if was_training:
                 self.model.train()
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train a small LM from scratch on a synthetic dataset")
@@ -227,8 +202,8 @@ if __name__ == "__main__":
     )
     parser.add_argument("--max-grad-norm", type=float, default=1.0, help="Gradient clipping max norm")
     parser.add_argument("--logging-steps", type=int, default=100, help="Log every N steps")
-    parser.add_argument("--eval-steps", type=int, default=500, help="Evaluate every N steps")
-    parser.add_argument("--save-steps", type=int, default=500, help="Save checkpoint every N steps")
+    #parser.add_argument("--eval-steps", type=int, default=500, help="Evaluate every N steps")
+    #parser.add_argument("--save-steps", type=int, default=500, help="Save checkpoint every N steps")
     parser.add_argument("--save-total-limit", type=int, default=5, help="Max checkpoints to keep on disk")
     parser.add_argument(
         "--lr-scheduler-type",
@@ -347,10 +322,8 @@ if __name__ == "__main__":
         max_grad_norm=args.max_grad_norm,
         optim="adamw_torch",
         eval_on_start=True,
-        eval_strategy="steps",
-        eval_steps=args.eval_steps,
-        save_strategy="steps",
-        save_steps=args.save_steps,
+        eval_strategy="epoch",
+        save_strategy="epoch",
         save_total_limit=args.save_total_limit,
         # Reloading the best checkpoint may print "missing keys: ['lm_head.weight']" -- this is
         # expected and harmless: GPT-2 ties its output head to the input embedding, so that
