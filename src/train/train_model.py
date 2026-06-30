@@ -40,7 +40,7 @@ from transformers import (
 # HF Hub repo holding your trained tokenizer (see train_tokenizer.py).
 # Example: TOKENIZER_NAME = "your-username/your-project-tokenizer"
 TOKENIZER_NAME: str = "CCBD-Interns/Mechinterp-revised-tokenizer"
-DATASET_NAME: str = "CCBD-Interns/Mechinterp-dataset-2digits"
+DATASET_NAME: str = "CCBD-Interns/Mechinterp-dataset-3digits"
 
 # Dataset with "train"/"validation" splits (see create_dataset.py). A local path such as
 # "./artifacts/dataset" or an HF Hub repo ID both work.
@@ -167,12 +167,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train a small LM from scratch on a synthetic dataset")
 
     # Model size (GPT-2 config attribute names)
-    parser.add_argument("--hidden-size", type=int, default=64, help="Hidden size (GPT-2 n_embd)")
-    parser.add_argument("--num-hidden-layers", type=int, default=1, help="Number of transformer layers (GPT-2 n_layer)")
-    parser.add_argument("--num-attention-heads", type=int, default=8, help="Number of attention heads (GPT-2 n_head)")
+    parser.add_argument("--hidden-size", type=int, default=32, help="Hidden size (GPT-2 n_embd)")
+    parser.add_argument("--num-hidden-layers", type=int, default=2, help="Number of transformer layers (GPT-2 n_layer)")
+    parser.add_argument("--num-attention-heads", type=int, default=4, help="Number of attention heads (GPT-2 n_head)")
     # parser.add_argument("--intermediate-size", type=int, default=1024, help="MLP/FFN inner size (GPT-2 n_inner)")
     parser.add_argument(
-        "--max-position-embeddings", type=int, default=16, help="Max sequence length (GPT-2 n_positions)"
+        "--max-position-embeddings", type=int, default=32, help="Max sequence length (GPT-2 n_positions)"
     )
 
     # Hub + Training
