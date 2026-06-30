@@ -55,6 +55,7 @@ def render_answer(n: int, lang: str) -> str:
     other answer digit. This is a deliberate departure from render_number's
     forward + zero-padded convention, which is kept for operands only.
     """
+<<<<<<< HEAD
     digits = DIGIT_MAPS[lang]
     return "".join(digits[int(d)] for d in str(n)[::-1])
  
@@ -125,6 +126,57 @@ def build_dataset(seed: int, val_holdout: float, max_operand: int) -> DatasetDic
         "validation": Dataset.from_dict({k: [r[k] for r in val_rows] for k in val_rows[0]}),
     })
 
+=======
+    # ----------------------------------------------------------------------- #
+    # TODO: implement dataset generation for your task.
+    # ----------------------------------------------------------------------- #
+    #
+    # Example (single-digit addition, 4-shot, leakage-safe -- matches the commented examples
+    # in src/train/train_tokenizer.py and src/utils/dataset.py):
+    #
+    #     import numpy as np
+    #     from datasets import Dataset
+    #
+    #     few_shot = 4
+    #
+    #     # 1. Enumerate every (a, b) item, then split into disjoint train/val pools so a
+    #     #    validation question never appears as a training question.
+    #     items = [(a, b) for a in range(10) for b in range(10)]
+    #     rng = np.random.default_rng(seed)
+    #     rng.shuffle(items)
+    #     split_idx = int(len(items) * (1 - val_holdout))
+    #     pools = {"train": items[:split_idx], "val": items[split_idx:]}
+    #
+    #     # 2. Build one split: the question comes from `q_pool`, few-shot ALWAYS from train. Each
+    #     #    shot looks like "7+5=12" and the prompt ends at "=", exactly the shape produced by
+    #     #    src/utils/dataset.py's example -- the same prompts you'll later run inference on. The
+    #     #    a/b/answer columns mirror the ground-truth dict that example stores under "metadata".
+    #     def generate_split(total: int, q_pool: list, split_name: str, split_seed: int) -> dict:
+    #         srng = np.random.default_rng(split_seed)
+    #         fs_pool = pools["train"]
+    #         rows = []
+    #         for i in range(total):
+    #             shots = []                                     # the solved examples shown first
+    #             for j in srng.integers(len(fs_pool), size=few_shot):
+    #                 fa, fb = fs_pool[j]
+    #                 shots.append(f"{fa}+{fb}={fa + fb}")       # e.g. "7+5=12"
+    #             a, b = q_pool[srng.integers(len(q_pool))]
+    #             prompt = "\n".join(shots) + f"\n{a}+{b}="      # ends at "=", answer to come
+    #             rows.append(
+    #                 {"_id": f"{split_name}-{i}", "a": a, "b": b, "answer": str(a + b), "prompt": prompt}
+    #             )
+    #         return {k: [r[k] for r in rows] for k in rows[0]}
+    #
+    #     train_data = generate_split(train_size, pools["train"], "train", seed)
+    #     val_data = generate_split(val_size, pools["val"], "validation", seed + 1)
+    #     return DatasetDict({
+    #         "train": Dataset.from_dict(train_data),
+    #         "validation": Dataset.from_dict(val_data),
+    #     })
+    #
+    # ----------------------------------------------------------------------- #
+    raise NotImplementedError("Implement build_dataset() for your task -- see the example in comments.")
+>>>>>>> upstream/main
 
 
 if __name__ == "__main__":
