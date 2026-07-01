@@ -7,7 +7,7 @@ a small worked example is kept below as a commented illustration.
 
 import argparse
 
-from rich.default_styles import parser
+
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
@@ -35,17 +35,17 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--num-prompts",
         "-p",
-        default=1000,
+        default=100,
         type=int,
-        help="Number of prompts to evaluate on. Defaults to 1000.",
+        help="Number of prompts to evaluate on. Defaults to 100.",
     )
     parser.add_argument(
         "--max-new-tokens",
         "-mnt",
         type=int,
         required=False,
-        default=200,
-        help="Maximum number of new tokens to generate. Defaults to 200.",
+        default=8,
+        help="Maximum number of new tokens to generate. Defaults to 8.",
     )
     parser.add_argument(
         "--output",

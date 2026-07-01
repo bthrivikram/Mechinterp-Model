@@ -81,7 +81,11 @@ if __name__ == "__main__":
     # 5. Build the prompts to run on. TODO: implement PromptDataset.generate_prompts (src/utils/dataset.py).
     # If your task needs extra parameters (operator, few-shot count, ...), add them as CLI args in
     # src/utils/parser.py and forward them here.
-    dataset = utils.dataset.PromptDataset.generate_prompts(num_prompts=args.num_prompts)
+    dataset = utils.dataset.PromptDataset.generate_prompts(
+    num_prompts=args.num_prompts,
+    language=args.language,
+    max_operand=args.max_operand,
+)
 
     # 6. Baseline run: generate on every prompt and capture activations (no ablation here).
     result = inference.run(

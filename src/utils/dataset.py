@@ -1,6 +1,6 @@
 import random
 
-from train.create_dataset import _apply_op, _format_answer, _format_operand
+from train.create_dataset import render_number, render_answer
 
 
 class PromptDataset:
@@ -13,32 +13,33 @@ class PromptDataset:
         return len(self.prompts)
 
     @classmethod
-    def generate_prompts(cls, num_prompts: int) -> "PromptDataset":
-        """Generate 0-shot prompts for 3-digit addition."""
+    def generate_prompts(
+        cls,
+        num_prompts: int,
+        language: str = "english",
+        max_operand: int = 999,
+    ) -> "PromptDataset":
+        """Generate 0-shot prompts for multilingual addition."""
 
         instance = cls()
-
-        digits = 3
-        max_operand = 999
 
         for _ in range(num_prompts):
             a = random.randint(0, max_operand)
             b = random.randint(0, max_operand)
 
             prompt = (
-                f"{_format_operand(a, digits)}"
+                f"{render_number(a, language, width=3)}"
                 f"+"
-                f"{_format_operand(b, digits)}="
+                f"{render_number(b, language, width=3)}="
             )
 
-            answer = _format_answer(_apply_op(a, b, "+"))
+            answer = render_answer(a + b, language)
 
             instance.prompts.append(
                 {
                     "prompt": prompt,
                     "metadata": {
-                        "base_operation": "+",
-                        "target_operation": "+",
+                        "language": language,
                         "a": a,
                         "b": b,
                         "answer": answer,
