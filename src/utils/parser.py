@@ -7,6 +7,8 @@ a small worked example is kept below as a commented illustration.
 
 import argparse
 
+from rich.default_styles import parser
+
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
     """Add inference command-line arguments to the parser.
@@ -92,3 +94,19 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     # You would then forward these from src/main.py into PromptDataset.generate_prompts.
     #
     # ----------------------------------------------------------------------- #
+    parser.add_argument(
+    "--language",
+    "-lang",
+    type=str,
+    default="english",
+    choices=["english", "hindi", "mandarin"],
+    help="Language used to generate the prompts.",
+)
+
+    parser.add_argument(
+    "--max-operand",
+    "-mo",
+    type=int,
+    default=999,
+    help="Maximum operand value. Operands are sampled uniformly from [0, max-operand].",
+)

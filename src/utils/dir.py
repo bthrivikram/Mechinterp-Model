@@ -7,6 +7,8 @@ different runs don't overwrite each other. A small worked example is in comments
 
 import argparse
 
+from transformer_lens import components
+
 
 def generate_output_path(args: argparse.Namespace) -> str:
     """Generate the output path for a run's results.
@@ -41,4 +43,13 @@ def generate_output_path(args: argparse.Namespace) -> str:
     # ----------------------------------------------------------------------- #
     model_name = str(args.model_path).replace("/", "--")
     intervention = getattr(args, "intervention", None) is not None
-    return f"[m={model_name}]_[p={args.num_prompts}]_[int={intervention}].pt"
+
+    components = [
+       f"[m={model_name}]",
+       f"[lang={args.language}]",
+       f"[p={args.num_prompts}]",
+       f"[mo={args.max_operand}]",
+       f"[int={intervention}]",
+    ]
+
+    return "_".join(components) + ".pt"

@@ -167,19 +167,11 @@ class GenerationEvalTrainer(Trainer):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train a small LM from scratch on a synthetic dataset")
 
-<<<<<<< HEAD
     # Model size (GPT-2 config attribute names)
     parser.add_argument("--hidden-size", type=int, default=32, help="Hidden size (GPT-2 n_embd)")
     parser.add_argument("--num-hidden-layers", type=int, default=2, help="Number of transformer layers (GPT-2 n_layer)")
     parser.add_argument("--num-attention-heads", type=int, default=4, help="Number of attention heads (GPT-2 n_head)")
     # parser.add_argument("--intermediate-size", type=int, default=1024, help="MLP/FFN inner size (GPT-2 n_inner)")
-=======
-    # Model size (GPT-2 config attribute names). The MLP/FFN inner size (n_inner) is not an
-    # independent knob -- it's always 4x hidden size, the standard GPT-2 convention.
-    parser.add_argument("--hidden-size", type=int, default=256, help="Hidden size (GPT-2 n_embd)")
-    parser.add_argument("--num-hidden-layers", type=int, default=4, help="Number of transformer layers (GPT-2 n_layer)")
-    parser.add_argument("--num-attention-heads", type=int, default=4, help="Number of attention heads (GPT-2 n_head)")
->>>>>>> upstream/main
     parser.add_argument(
         "--max-position-embeddings", type=int, default=32, help="Max sequence length (GPT-2 n_positions)"
     )
@@ -271,13 +263,6 @@ if __name__ == "__main__":
         pad_token_id=tokenizer.pad_token_id,
         bos_token_id=tokenizer.bos_token_id,
         eos_token_id=tokenizer.eos_token_id,
-<<<<<<< HEAD
-=======
-        # Disable dropout (GPT2Config defaults all of these to 0.1). For a tiny model trained from
-        # scratch on a synthetic task, weight decay is usually a better sole regularizer; dropout
-        # mostly adds noise that hurts these small setups. Remove these lines if you
-        # want the standard GPT-2 dropout back.
->>>>>>> upstream/main
         resid_pdrop=0.0,
         embd_pdrop=0.0,
         attn_pdrop=0.0,

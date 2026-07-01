@@ -61,9 +61,11 @@ def find_answer_span(generated_text: str) -> tuple[str, int, int] | None:
     #
     # Example (an arithmetic task whose answer is an integer, possibly negative, e.g. "12" or "-46"):
     #     match = re.search(r"^\s*(-?\d+)", generated_text)
-    match = re.search(r"^\s*(\S+)", generated_text)
+    # Match the first integer (optionally negative) at the start of the generation.
+    match = re.search(r"^\s*(-?\d+)", generated_text)
     if not match:
         return None
+
     return match.group(1), match.start(1), match.end(1)
 
 
@@ -106,7 +108,33 @@ def find_positions_of_interest(model: TransformerBridge, prompt: str) -> dict[st
     #     return positions
     #
     # ----------------------------------------------------------------------------------- #
-    return {}
+    """Return token positions corresponding to the operands, operator and '=' sign."""
+
+    # Extract the last line (the actual question in the prompt).
+    question = prompt.rsplit("\n", 1)[-1]
+
+    # Expected format: 000+000=
+    match = re.match(r"^(\d+)([+\-*/])(\d+)=$", question)
+    if not match:
+        return {}
+
+    operand_a, operand_b = match.group(1), match.group(3)
+
+    question_start = len(prompt) - len(question)
+
+    char_positions = {
+        "operand_a": question_start + len(operand_a) - 1,
+        "operator": question_start + len(operand_a),
+        "operand_b": question_start + len(operand_a) + 1 + len(operand_b) - 1,
+        "eq_sign": len(prompt) - 1,
+    }
+
+    token_ids = model.to_tokens(prompt, prepend_bos=False)[0]
+
+    return {
+        name: _map_char_to_token(model, token_ids, char_pos)
+        for name, char_pos in char_positions.items()
+    }
 
 
 def _map_char_to_token(model: TransformerBridge, token_ids: torch.Tensor, target_char_position: int) -> int | None:
